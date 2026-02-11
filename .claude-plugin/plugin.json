@@ -1,0 +1,8 @@
+{
+  "name": "resolve-prs",
+  "description": "Automatically resolve Dependabot PRs - assesses risk, tests locally, merges safe ones, fixes breaking changes, and closes incompatible ones with clear explanations.",
+  "version": "1.0.0",
+  "author": {
+    "name": "GijungKim"
+  }
+}

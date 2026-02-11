@@ -1,0 +1,14 @@
+{
+  "name": "resolve-prs",
+  "owner": {
+    "name": "GijungKim"
+  },
+  "plugins": [
+    {
+      "name": "resolve-prs",
+      "source": "./",
+      "description": "Automatically resolve Dependabot PRs - assesses risk, tests locally, merges safe ones, fixes breaking changes, and closes incompatible ones.",
+      "version": "1.0.0"
+    }
+  ]
+}
