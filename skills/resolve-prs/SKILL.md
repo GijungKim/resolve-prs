@@ -1,7 +1,7 @@
 ---
 name: resolve-prs
-description: Resolve open Dependabot PRs on GitHub repos. Assesses each PR, merges safe ones, fixes and merges fixable ones, and closes broken ones with explanations. Use --all to process every git repo in the current directory in parallel.
-argument-hint: "[--all | owner/repo]"
+description: Resolve open Dependabot PRs on GitHub repos. Assesses each PR, merges safe ones, fixes and merges fixable ones, and closes broken ones with explanations. Use --all to process every git repo in the current directory in parallel. Use --dry-run to assess without taking action.
+argument-hint: "[--all] [--dry-run] [owner/repo]"
 disable-model-invocation: true
 allowed-tools: Bash, Read, Edit, Write, Glob, Grep, Task, SendMessage, TeamCreate, TeamDelete, TaskCreate, TaskUpdate, TaskList
 ---
@@ -20,7 +20,10 @@ You are resolving open Dependabot dependency update PRs on GitHub repositories. 
 
 - No arguments: process the current git repo (uses `origin` remote to determine owner/repo)
 - `--all`: find all git repos in the current directory and process each one in parallel using a Claude team (one agent per repo)
+- `--dry-run`: assess and report on all PRs without merging, fixing, or closing anything
 - `owner/repo`: process a specific GitHub repo
+
+Flags can be combined, e.g. `--all --dry-run`.
 
 Raw arguments: $ARGUMENTS
 
@@ -44,7 +47,23 @@ gh pr list --repo OWNER/REPO --state open --json number,title,author,mergeable,m
 
 Filter to Dependabot PRs (author login contains "dependabot"). If there are no open Dependabot PRs, report that and stop.
 
-## Step 3: Assess Each PR
+## Step 3: Fetch Changelogs
+
+For each PR, before assessing risk, try to fetch release notes or changelogs:
+
+1. From the PR body itself (Dependabot usually includes a changelog summary)
+2. From GitHub releases of the dependency:
+   ```bash
+   gh api repos/OWNER/DEPENDENCY/releases/latest --jq '.body' 2>/dev/null
+   ```
+3. Look for CHANGELOG.md or MIGRATION.md in the updated package:
+   ```bash
+   cat node_modules/PACKAGE/CHANGELOG.md 2>/dev/null | head -100
+   ```
+
+Use this information to anticipate breaking changes before testing. If the changelog explicitly mentions breaking changes or migration steps, factor that into the risk assessment and keep the info handy for Step 7 (fixing).
+
+## Step 4: Assess Each PR
 
 For each PR, get the diff:
 ```bash
@@ -60,7 +79,7 @@ Categorize each PR by risk level:
 
 ### Medium Risk (test first, then merge)
 - Minor version bumps of runtime dependencies
-- Major bumps of dev-only tools (linters, formatters) — test lint/compile
+- Major bumps of dev-only tools (linters, formatters) - test lint/compile
 - Any bump of dependencies used in the project's core functionality
 
 ### High Risk (likely breaking)
@@ -68,17 +87,19 @@ Categorize each PR by risk level:
 - Version bumps that create mismatches with pinned peer dependencies (e.g., react-dom bumped but react stays pinned)
 - Bumps incompatible with framework SDK constraints (e.g., Expo SDK pins)
 
-## Step 4: Detect Package Manager
+Always cross-reference with the "Common Breaking Change Patterns" section below and any changelog info from Step 3.
+
+## Step 5: Detect Package Manager
 
 Before testing, detect the project's package manager:
-- `bun.lock` or `bun.lockb` → bun
-- `yarn.lock` → yarn
-- `pnpm-lock.yaml` → pnpm
-- `package-lock.json` → npm
+- `bun.lock` or `bun.lockb` -> bun
+- `yarn.lock` -> yarn
+- `pnpm-lock.yaml` -> pnpm
+- `package-lock.json` -> npm
 
 Use the detected package manager for all install/run commands throughout.
 
-## Step 5: Test Risky PRs Locally
+## Step 6: Test Risky PRs Locally
 
 For medium/high risk PRs:
 
@@ -95,7 +116,9 @@ For medium/high risk PRs:
    - Tests (e.g., `test` script)
 5. Restore after each test: `git checkout main -- package.json && <pkg-manager> install`
 
-## Step 6: Take Action
+## Step 7: Take Action
+
+**If `--dry-run` is set, skip this step entirely. Just report the assessment from Step 9.**
 
 ### For safe/passing PRs: MERGE
 ```bash
@@ -106,9 +129,10 @@ gh pr merge NUMBER --repo OWNER/REPO --merge
 1. Checkout the PR branch: `git checkout BRANCH`
 2. Install dependencies
 3. Make the necessary code changes (API migrations, config updates, mock updates, etc.)
-4. Commit with a clear message explaining the fix
-5. Push to the PR branch
-6. Merge the PR
+4. Use changelog/migration guide info from Step 3 to inform the fix
+5. Commit with a clear message explaining the fix
+6. Push to the PR branch
+7. Merge the PR
 
 ### For broken/incompatible PRs: CLOSE with explanation
 ```bash
@@ -120,29 +144,55 @@ Always include a clear, specific reason:
 - "Major version change requires migration of Z, not automated"
 - "Version mismatch: A stays at X while B would be Y"
 
-## Step 7: Cleanup
+## Step 8: Auto-Learn (after fixing novel breaking changes)
+
+When you successfully fix a breaking change that is NOT already listed in the "Common Breaking Change Patterns" section below, add it.
+
+### Rules for auto-learn
+
+1. **Only record generalizable patterns.** The entry should help with ANY project that hits this upgrade, not just the current one. Example of good: "react-native-mmkv 3 -> 4: `new MMKV()` -> `createMMKV()`". Example of bad: "fixed import in src/utils/storage.ts".
+
+2. **One line per pattern.** Format: `**package X -> Y**: brief description of what changed and how to fix it.`
+
+3. **Cap at 30 entries per subsection.** If a subsection hits 30, consolidate the oldest/most obvious entries (e.g., merge multiple similar patterns into one) to make room. Remove patterns for packages that haven't been relevant in multiple runs.
+
+4. **Don't duplicate.** If a similar pattern already exists, update it rather than adding a new one.
+
+5. **Where to write.** Edit the SKILL.md file directly in the skill's directory. The file location depends on where the skill is installed:
+   - Personal: `~/.claude/skills/resolve-prs/SKILL.md`
+   - Project: `.claude/skills/resolve-prs/SKILL.md`
+   - Plugin: find via `ls ~/.claude/plugins/*/skills/resolve-prs/SKILL.md`
+
+   Use the Edit tool to append to the appropriate subsection under "Common Breaking Change Patterns".
+
+## Step 9: Cleanup
 
 1. Return to the main/default branch
 2. Pull merged changes
 3. Restore any stashed work: `git stash pop`
 
-## Step 8: Report
+## Step 10: Report
 
 Present a summary table:
 
-| PR | Title | Action | Reason |
-|---|---|---|---|
-| #N | ... | Merged / Fixed & Merged / Closed | ... |
+| PR | Title | Risk | Action | Reason |
+|---|---|---|---|---|
+| #N | ... | Low/Medium/High | Merged / Fixed & Merged / Closed / Would merge (dry-run) / Would close (dry-run) | ... |
+
+If `--dry-run`, use "Would merge", "Would close", "Would fix & merge" in the Action column.
+
+If any new patterns were learned, mention them at the bottom:
+> Learned N new breaking change pattern(s) - the skill will handle these automatically next time.
 
 ## Common Breaking Change Patterns
 
-Reference these when assessing PRs. This is not exhaustive — always verify by testing.
+Reference these when assessing PRs. This is not exhaustive - always verify by testing. New patterns are added automatically via auto-learn (Step 8).
 
 ### JavaScript / TypeScript Ecosystem
 - **ESLint 8 -> 9+**: Requires flat config migration (`.eslintrc.*` -> `eslint.config.js`). Check if `eslint-config-*` packages support flat config before merging.
 - **Jest major bumps**: Often incompatible with framework-specific jest presets (`jest-expo`, `react-scripts`). Check the preset's peer dependencies.
 - **TypeScript major bumps**: Check if all `@types/*` packages and build tools ship compatible definitions.
-- **Prettier major bumps**: Usually safe but may reformat code — check if CI enforces formatting.
+- **Prettier major bumps**: Usually safe but may reformat code - check if CI enforces formatting.
 
 ### React / React Native
 - **react-dom without react**: Must always match the `react` version exactly.
