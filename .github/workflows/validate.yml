@@ -1,0 +1,51 @@
+name: Validate Skill
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate plugin.json
+        run: python3 -c "import json; json.load(open('.claude-plugin/plugin.json'))"
+
+      - name: Validate marketplace.json
+        run: python3 -c "import json; json.load(open('.claude-plugin/marketplace.json'))"
+
+      - name: Validate SKILL.md frontmatter
+        run: |
+          python3 -c "
+          import re, sys
+          content = open('skills/resolve-prs/SKILL.md').read()
+          match = re.match(r'^---\n(.*?)\n---', content, re.DOTALL)
+          if not match:
+              print('ERROR: No YAML frontmatter found')
+              sys.exit(1)
+          # Check required fields
+          fm = match.group(1)
+          for field in ['name', 'description']:
+              if field + ':' not in fm:
+                  print(f'ERROR: Missing required field: {field}')
+                  sys.exit(1)
+          print('Frontmatter valid')
+          "
+
+      - name: Check pattern count
+        run: |
+          python3 -c "
+          content = open('skills/resolve-prs/SKILL.md').read()
+          import re
+          sections = re.split(r'^### ', content, flags=re.MULTILINE)[1:]
+          for section in sections:
+              lines = section.strip().split('\n')
+              name = lines[0].strip()
+              patterns = [l for l in lines[1:] if l.startswith('- **')]
+              if len(patterns) > 30:
+                  print(f'WARNING: {name} has {len(patterns)} patterns (cap is 30)')
+              else:
+                  print(f'{name}: {len(patterns)} patterns')
+          "

@@ -1,0 +1,43 @@
+name: Breaking Change Pattern
+description: Submit a breaking change pattern you've encountered during a dependency upgrade
+title: "pattern: "
+labels: ["pattern"]
+body:
+  - type: input
+    id: package
+    attributes:
+      label: Package name
+      placeholder: e.g., react-native-mmkv
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Version change
+      placeholder: e.g., 3.x -> 4.x
+    validations:
+      required: true
+  - type: textarea
+    id: what-broke
+    attributes:
+      label: What broke
+      description: What error or failure did you see?
+      placeholder: TypeScript compile error, test failure, runtime crash, etc.
+    validations:
+      required: true
+  - type: textarea
+    id: fix
+    attributes:
+      label: How to fix it
+      description: What code changes were needed?
+      placeholder: "Changed `new MMKV()` to `createMMKV()`, renamed `.delete()` to `.remove()`"
+    validations:
+      required: true
+  - type: input
+    id: ecosystem
+    attributes:
+      label: Ecosystem
+      description: Which subsection should this go under?
+      placeholder: "JS/TS, React/RN, Python, Go, General, etc."
+    validations:
+      required: false
