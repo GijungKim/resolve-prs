@@ -2,7 +2,7 @@
 name: resolve-prs
 description: Resolve open Dependabot PRs on GitHub repos. Assesses each PR, merges safe ones, fixes and merges fixable ones, and closes broken ones with explanations. Use --all to process every git repo in the current directory in parallel. Use --dry-run to assess without taking action.
 argument-hint: "[--all] [--dry-run] [owner/repo]"
-disable-model-invocation: true
+disable-model-invocation: false
 allowed-tools: Bash, Read, Edit, Write, Glob, Grep, Task, SendMessage, TeamCreate, TeamDelete, TaskCreate, TaskUpdate, TaskList
 ---
 
@@ -190,8 +190,11 @@ Reference these when assessing PRs. This is not exhaustive - always verify by te
 
 ### JavaScript / TypeScript Ecosystem
 - **ESLint 8 -> 9+**: Requires flat config migration (`.eslintrc.*` -> `eslint.config.js`). Check if `eslint-config-*` packages support flat config before merging.
+- **ESLint 9 -> 10**: Removes `FlatESLint`/`LegacyESLint` exports, breaking `typescript-eslint` <8.56.0 and `@eslint/js` <10. Bump `@eslint/js` to ^10.0.0 and `typescript-eslint` to ^8.56.0+. Note: `eslint-plugin-react-hooks` may lack ESLint 10 peer dep but works anyway.
+- **eslint-plugin-react-refresh 0.4 -> 0.5**: Ships ESM-only, changes default export to named `{ reactRefresh }`, and `configs.vite` becomes `configs.vite()` (function call). Also `customHOCs` renamed to `extraHOCs`.
 - **Jest major bumps**: Often incompatible with framework-specific jest presets (`jest-expo`, `react-scripts`). Check the preset's peer dependencies.
 - **TypeScript major bumps**: Check if all `@types/*` packages and build tools ship compatible definitions.
+- **TypeScript 5.x -> 6.x**: `baseUrl` and `moduleResolution: "node"` are deprecated (error by default). Fix: remove `baseUrl` (default is `.`), change `moduleResolution` to `"bundler"`. Also, TS 6 no longer auto-includes all `@types/*` from `typeRoots` — add an explicit `"types"` array listing needed type packages (e.g., `["react", "jest", "node"]`).
 - **Prettier major bumps**: Usually safe but may reformat code - check if CI enforces formatting.
 
 ### React / React Native
