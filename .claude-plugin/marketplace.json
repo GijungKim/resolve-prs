@@ -7,8 +7,8 @@
     {
       "name": "resolve-prs",
       "source": "./",
-      "description": "Automatically resolve Dependabot PRs - assesses risk, tests locally, merges safe ones, fixes breaking changes, and closes incompatible ones.",
-      "version": "1.0.0"
+      "description": "Automatically resolve dependency-update PRs (Dependabot, Renovate, pyup, manual). Worktree-isolated validation, monorepo-aware, .resolve-prs-ignore support.",
+      "version": "1.1.0"
     }
   ]
 }

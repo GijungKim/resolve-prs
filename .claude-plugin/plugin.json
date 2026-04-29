@@ -1,7 +1,7 @@
 {
   "name": "resolve-prs",
-  "description": "Automatically resolve Dependabot PRs - assesses risk, tests locally, merges safe ones, fixes breaking changes, and closes incompatible ones with clear explanations.",
-  "version": "1.0.0",
+  "description": "Automatically resolve dependency-update PRs (Dependabot, Renovate, pyup, conventional-commit human PRs). Assesses risk, validates with worktree-isolated installs, merges only on green CI or local typecheck, fixes breaking changes, closes incompatible ones with bot-ignore config, and respects per-repo .resolve-prs-ignore files.",
+  "version": "1.1.0",
   "author": {
     "name": "GijungKim"
   }
