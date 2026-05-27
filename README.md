@@ -1,8 +1,8 @@
 # resolve-prs
 
-A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that automatically resolves Dependabot PRs on your GitHub repos.
+A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that automatically resolves dependency-update PRs on your GitHub repos — Dependabot, Renovate, pyup, and human-authored `chore(deps)` / `build(deps)` / `bump` PRs.
 
-Instead of manually reviewing each Dependabot PR, this skill:
+Instead of manually reviewing each dependency-update PR, this skill:
 
 1. **Assesses risk** - categorizes each PR as low/medium/high risk based on semver, peer deps, and framework constraints
 2. **Fetches changelogs** - pulls release notes and migration guides to anticipate breaking changes before testing
@@ -72,7 +72,7 @@ When you pass `--all`, the skill:
 3. Each agent independently runs the full PR resolution workflow
 4. Results are collected into a unified summary table
 
-This is useful when you have a directory of projects (e.g., `~/projects/`) and want to batch-resolve Dependabot PRs across all of them.
+This is useful when you have a directory of projects (e.g., `~/projects/`) and want to batch-resolve dependency-update PRs across all of them.
 
 ## How `--dry-run` works
 
