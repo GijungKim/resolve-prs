@@ -56,8 +56,10 @@ The skill includes a growing knowledge base of common breaking changes it can de
 | Jest major bumps | Checks framework preset compatibility (jest-expo, etc.) |
 | react / react-dom mismatch | Closes if versions would diverge |
 | react-native-mmkv 3 -> 4 | Migrates `new MMKV()` to `createMMKV()`, fixes `.delete()` -> `.remove()`, adds jest mock |
-| Expo SDK pins | Respects Expo version constraints |
+| Expo SDK pins | Runs `npx expo install --check` in the validation worktree; closes bumps that fight SDK pins |
+| Expo SDK major bumps | Never auto-merged — SDK upgrades are flagged for a manual `expo install --fix` flow |
 | Peer dependency conflicts | Detects and closes incompatible bumps |
+| Lockfile conflicts between PRs | Merges lowest-risk first, triggers `@dependabot rebase` / Renovate rebase, defers stragglers |
 
 ### Auto-learn
 
@@ -68,7 +70,7 @@ When the skill fixes a novel breaking change not in its knowledge base, it autom
 When you pass `--all`, the skill:
 
 1. Finds all git repos within the current directory (up to 2 levels deep)
-2. Spins up a Claude team with one agent per repo
+2. Spawns one subagent per repo (capped at 8 concurrent)
 3. Each agent independently runs the full PR resolution workflow
 4. Results are collected into a unified summary table
 

@@ -3,7 +3,7 @@ name: resolve-prs
 description: Resolve open dependency-update PRs on GitHub repos (Dependabot, Renovate, pyup, plus human-authored "chore(deps)" / "build(deps)" / "bump" PRs). Assesses each PR, merges safe ones, fixes and merges fixable ones, and closes broken ones with explanations. Use --all to process every git repo in the current directory in parallel. Use --dry-run to assess without taking action.
 argument-hint: "[--all] [--dry-run] [owner/repo]"
 disable-model-invocation: false
-allowed-tools: Bash, Read, Edit, Write, Glob, Grep, Task, SendMessage, TeamCreate, TeamDelete, TaskCreate, TaskUpdate, TaskList
+allowed-tools: Bash, Read, Edit, Write, Glob, Grep, Task, Agent, SendMessage, TaskCreate, TaskUpdate, TaskList
 ---
 
 # Resolve Dependency-Update PRs
@@ -31,7 +31,7 @@ Raw arguments: $ARGUMENTS
 
 If `--all` flag is present:
 1. Run `find . -maxdepth 2 -name .git -type d` to discover repos
-2. Create a Claude team with one agent per repo, **capped at 8 concurrent agents**. If more repos than the cap, queue the rest and process in waves as agents finish. The cap protects against I/O contention from parallel package installs and against accidentally hammering GitHub's API limits across many repos.
+2. Spawn one subagent per repo (Agent/Task tool), **capped at 8 concurrent agents**. If more repos than the cap, queue the rest and process in waves as agents finish. The cap protects against I/O contention from parallel package installs and against accidentally hammering GitHub's API limits across many repos.
 3. Each agent runs the PR resolution workflow below independently and reports a one-line status when it finishes (e.g. `repo X: 3 merged, 1 fixed & merged, 1 closed, 0 failed`)
 4. Coordinate results from those one-liners and present a unified summary at the end
 
@@ -49,7 +49,11 @@ Filter to dependency-update PRs. A PR qualifies if EITHER:
 - Its author login matches a known dep-bump bot: `dependabot[bot]`, `dependabot-preview[bot]`, `renovate[bot]`, `renovate-bot`, `pyup-bot`, `pre-commit-ci[bot]`. Substring matches on `dependabot`, `renovate`, or `pyup` are also fine.
 - OR its title starts with a conventional dep-bump prefix: `chore(deps):`, `chore(deps-dev):`, `build(deps):`, `build(deps-dev):`, `bump `, or `Bump ` (case-insensitive). This catches human-authored PRs that were opened before the bot was configured, or one-off manual upgrades.
 
+Renovate "lock file maintenance" PRs (title `chore(deps): lock file maintenance`) also qualify. They have no single dependency name — skip the `.resolve-prs-ignore` matching and the changelog step, treat them as Low Risk, and validate with install + typecheck.
+
 If no PRs match, report that and stop.
+
+PRs that are already `mergeable: CONFLICTING` at this point still get assessed; handle the conflict via the "Merge order matters" rules in Step 7.
 
 ### Apply `.resolve-prs-ignore` (if present)
 
@@ -74,14 +78,16 @@ The ignore file is per-repo. With `--all`, each repo reads its own.
 For each PR, before assessing risk, try to fetch release notes or changelogs:
 
 1. From the PR body itself (Dependabot and Renovate both inline a changelog summary; manual PRs may not)
-2. From GitHub releases of the dependency:
+2. From GitHub releases of the dependency, covering the **from -> to range** — the PR may skip several versions, and `releases/latest` alone misses the intermediate ones where the breaking change usually lives:
    ```bash
-   gh api repos/OWNER/DEPENDENCY/releases/latest --jq '.body' 2>/dev/null
+   repo_url=$(npm view "PACKAGE@NEW_VERSION" repository.url 2>/dev/null)   # pin the version; bare `npm view` reads `latest`
+   if [[ "$repo_url" == *github.com* ]]; then
+     dep_repo=$(printf '%s' "$repo_url" | sed -E 's,[?#].*$,,; s,.*github\.com[:/],,; s,^([^/]+/[^/]+).*,\1,; s,\.git$,,')
+     gh api "repos/$dep_repo/releases?per_page=100" --jq '.[] | "## " + .tag_name + "\n" + .body' 2>/dev/null
+   fi
    ```
-3. Look for CHANGELOG.md or MIGRATION.md in the updated package:
-   ```bash
-   cat node_modules/PACKAGE/CHANGELOG.md 2>/dev/null | head -100
-   ```
+   The `sed` reduces any GitHub URL form (`git+https://`, `git://`, `git@github.com:`, monorepo `/tree/...` subpaths) to `owner/repo`; skip this source for non-GitHub packages. Keep the releases whose tags fall in `(from, to]`. If 100 releases don't reach back to `from` (release-heavy repos), paginate or settle for what you have — and say so in the risk assessment rather than implying full coverage. Some projects tag without creating GitHub releases; an empty result here isn't evidence of "no breaking changes".
+3. CHANGELOG.md or MIGRATION.md inside the installed package — only readable **in the Step 6 worktree after install** (the main checkout's `node_modules` still has the OLD version). Sources 1–2 are what feed the Step 4 risk assessment; this one is extra context when validating or fixing medium/high-risk PRs. Low-risk PRs merged on green CI never create a worktree — don't create one just for this.
 
 Use this information to anticipate breaking changes before testing. If the changelog explicitly mentions breaking changes or migration steps, factor that into the risk assessment and keep the info handy for Step 7 (fixing).
 
@@ -103,6 +109,12 @@ Even low-risk PRs require a green signal before merge. Never merge purely on the
 1. `statusCheckRollup` from Step 2 is `SUCCESS` (CI passed on the PR)
 2. Local smoke test passes: at minimum a typecheck (`tsc --noEmit` or the `compile` script) plus lint
 If neither signal is available (no CI configured, no compile/lint script), treat the PR as Medium Risk and follow Step 6.
+
+As a cheap extra supply-chain guard, check how fresh the new version is:
+```bash
+npm view PACKAGE time --json | jq -r '."NEW_VERSION"'
+```
+If a patch/minor release is less than ~48 hours old, prefer deferring it to the next run (mark it **Deferred** in the report). Compromised releases are usually caught and yanked within days; waiting costs nothing.
 
 ### Medium Risk (test first, then merge)
 - Minor version bumps of runtime dependencies
@@ -172,27 +184,71 @@ For low-risk PRs without a green CI signal, run a smoke test (typecheck + lint).
    # Validate in each affected package
    for d in "${validate_dirs[@]}"; do
      cd "$worktree_dir/$d"
-     <pkg-manager> run compile      # or `tsc --noEmit` if no compile script
-     <pkg-manager> run lint:check   # or whichever lint script exists
+     <pkg-manager> run typecheck    # see script detection note below
+     <pkg-manager> run lint
      <pkg-manager> test             # medium/high risk only
    done
    ```
+
+   Don't guess script names — read the affected `package.json`'s `scripts` first and run what actually exists:
+   - **Typecheck:** the script under whatever name it has (`typecheck`, `compile`, `check-types`, ...). Fallback if none but a `tsconfig.json` exists: run the project-local compiler through the package manager (`npx tsc --noEmit`, `yarn tsc --noEmit`, `pnpm exec tsc --noEmit`, `bunx tsc --noEmit`) — a bare `tsc` may not resolve `node_modules/.bin` and can fail or pick up a globally installed, wrong-version TypeScript.
+   - **Lint:** prefer a check-style script (`lint:check`) over one that writes fixes. If the only lint script auto-fixes, run it and then check `git status --porcelain` in the worktree — a dirty tree means the PR's code doesn't pass lint as-is; treat that as a lint failure (or fold the fixes into the FIX-then-MERGE flow), never as a pass.
+   - **Test:** the test script, skipping it if it's the npm placeholder (`"echo \"Error: no test specified\""`).
 
    The worktree carries the PR's `package.json` AND lockfile, so the install matches what would actually land on `$default_branch`. No flags needed; the lockfile pins versions exactly.
 
 4. The user's main checkout is never modified. There is no per-PR restore step. Each PR gets its own fresh worktree; the `trap` removes it whether validation passes, fails, or crashes.
 
+## Step 6.5: Expo Projects — SDK Compatibility
+
+If any affected `package.json` lists `expo` in its dependencies, add one check inside the Step 6 worktree, after install:
+
+```bash
+CI=1 npx expo install --check
+```
+
+The `CI=1` matters: run interactively, the command prompts to install the "expected" versions, which would hang the run — and accepting would rewrite the worktree. In CI mode it's check-only and exits non-zero listing every package whose version doesn't match what the installed SDK expects.
+
+- **If the PR's bumped package is flagged**, the bump fights the SDK pin. Don't merge it, and don't "fix" it by re-pinning in the PR — that just re-creates the bot's diff in reverse. Close it with the reason `pinned by Expo SDK <version>; npx expo install --check flags <package>@<new-version>` plus the bot-ignore snippet from Step 7, and suggest adding the package to `.resolve-prs-ignore` so future runs skip it outright.
+- **If only unrelated packages are flagged**, that's pre-existing drift in the repo — note it once in the final report, but don't hold it against the PR.
+
+Never auto-merge a bump of the `expo` package itself across SDK versions (e.g. 52 -> 53). That's an SDK upgrade, not a dep bump: it needs `npx expo install --fix`, `npx expo-doctor`, and usually config-plugin/native changes. Close it pointing at the Expo upgrade guide (https://docs.expo.dev/workflow/upgrading-expo-sdk-walkthrough/), or leave it open with a comment if the user does SDK upgrades manually.
+
 ## Step 7: Take Action
 
 **If `--dry-run` is set, skip this step entirely. Just report the assessment from Step 9.**
+
+### Merge order matters
+
+Every merged PR rewrites the lockfile on `$default_branch`, which turns the remaining PRs stale or conflicted. Process PRs **one at a time, lowest risk first**, and re-check each PR's state right before acting on it:
+
+```bash
+gh pr view NUMBER --repo OWNER/REPO --json mergeable,mergeStateStatus,headRefOid
+```
+
+- **If `headRefOid` differs from the head you validated** (the bot force-pushed since Step 2), the green signal belongs to a commit that no longer exists. Re-check the diff: if the target version changed, redo the Step 3–4 assessment (including the publish-age check) — a rebase can pull in a materially different release; if only the base moved, re-run Step 6 validation on the new head.
+- `mergeStateStatus: BEHIND` — fine when the merges that moved `$default_branch` are unrelated to this PR (different packages, no shared peer constraints). If an earlier merge this run bumped the same package or a peer of it, treat it like a conflict below (rebase + re-validate) — two individually-green dep PRs can still break in combination.
+- `mergeable: CONFLICTING` (typically a lockfile conflict with a PR you just merged): trigger a rebase from the bot. For Dependabot: `gh pr comment NUMBER --repo OWNER/REPO --body "@dependabot rebase"`. For Renovate: flip the rebase checkbox in the PR body from `- [ ]` to `- [x]` (`gh pr view NUMBER --repo OWNER/REPO --json body`, edit, `gh pr edit NUMBER --repo OWNER/REPO --body "..."`). Poll for the bot's force-push for ~2 minutes; if it lands, apply the `headRefOid` rule above (re-assess if the version changed, re-validate regardless), then merge. If it doesn't land in time, mark the PR **Deferred** and move on — the bot rebases on its own schedule and the next run picks it up.
+
+The same handling applies to PRs that were already conflicted at the start of the run. Under `--dry-run`, don't trigger rebases; report conflicted PRs as **Would defer (needs rebase)**.
 
 ### For safe/passing PRs: MERGE
 
 A PR is mergeable only if it has a green signal: `statusCheckRollup` is `SUCCESS`, or local validation from Step 6 passed. Never merge purely on the Step 4 risk classification.
 
+Detect the repo's allowed merge methods once per run — a hardcoded method fails outright on repos that only allow squash:
+
 ```bash
-gh pr merge NUMBER --repo OWNER/REPO --merge
+gh repo view OWNER/REPO --json squashMergeAllowed,mergeCommitAllowed,rebaseMergeAllowed
 ```
+
+Dep bumps are single-commit, so prefer `--squash` if allowed, then `--merge`, then `--rebase`. Pin the merge to the exact commit you validated so a force-push in the window between recheck and merge fails loudly instead of landing an untested head:
+
+```bash
+gh pr merge NUMBER --repo OWNER/REPO --squash --match-head-commit HEAD_SHA   # headRefOid from the recheck
+```
+
+If branch protection requires checks that are still running (merge is blocked but nothing failed), enable auto-merge with the full form — `gh pr merge NUMBER --repo OWNER/REPO --squash --auto --match-head-commit HEAD_SHA` — and report the PR as **Auto-merge enabled**, not merged: it only lands later, when checks pass. If the repository has auto-merge disabled the command errors; mark the PR **Deferred** instead.
 
 ### For PRs that need fixes: FIX then MERGE
 
@@ -210,7 +266,7 @@ Use a worktree for the same reasons as Step 6: the user's main checkout stays cl
 5. Commit with a clear message explaining the fix
 6. Push to the PR branch from the worktree: `git push origin BRANCH`
 7. Remove the worktree: `cd - && git worktree remove "$worktree_dir" --force`
-8. Merge the PR: `gh pr merge NUMBER --repo OWNER/REPO --merge`
+8. Merge the PR using the merge method detected above: `gh pr merge NUMBER --repo OWNER/REPO --squash` (or `--merge`/`--rebase`)
 
 ### For broken/incompatible PRs: CLOSE with explanation
 ```bash
@@ -280,11 +336,11 @@ The worktree-based approach in Steps 6 and 7 means the user's working tree was n
 
 Present a summary table:
 
-| PR | Title | Risk | Action | Reason |
-|---|---|---|---|---|
-| #N | ... | Low/Medium/High | Merged / Fixed & Merged / Closed / Skipped / Would merge (dry-run) / Would close (dry-run) | ... |
+| PR | Title | Update | Risk | Action | Reason |
+|---|---|---|---|---|---|
+| #N | ... | X -> Y | Low/Medium/High | Merged / Auto-merge enabled / Fixed & Merged / Closed / Skipped / Deferred / Would merge (dry-run) / Would close (dry-run) | ... |
 
-If `--dry-run`, use "Would merge", "Would close", "Would fix & merge" in the Action column. PRs filtered out by `.resolve-prs-ignore` use `Skipped` (the action would not have been taken anyway, so `--dry-run` doesn't change it).
+If `--dry-run`, use "Would merge", "Would close", "Would fix & merge" in the Action column. PRs filtered out by `.resolve-prs-ignore` use `Skipped`, and releases <48h old use `Deferred` — the same in dry-run, since no action would have been taken either way. Conflicted PRs in dry-run use `Would defer (needs rebase)`: for real runs a rebase is triggered, but dry-run doesn't trigger one.
 
 If any new patterns were learned, mention them at the bottom:
 > Learned N new breaking change pattern(s) - the skill will handle these automatically next time.
@@ -305,7 +361,9 @@ Reference these when assessing PRs. This is not exhaustive - always verify by te
 ### React / React Native
 - **react-dom without react**: Must always match the `react` version exactly.
 - **react-native-mmkv 3 -> 4**: Constructor changed from `new MMKV()` to `createMMKV()`, `.delete()` renamed to `.remove()`, requires Nitro Modules jest mock.
-- **Expo SDK pins**: Many dependencies are pinned by Expo SDK version. Verify with `npx expo install --fix`. Don't bump packages that Expo constrains.
+- **Expo SDK pins**: Many dependencies are pinned by Expo SDK version. Verify with `npx expo install --check` (read-only; `--fix` mutates). Don't bump packages that Expo constrains. See Step 6.5.
+- **expo (SDK) major bumps (e.g. 52 -> 53)**: Never auto-merge — this is a full SDK upgrade (`npx expo install --fix`, `expo-doctor`, config-plugin and native changes), not a dep bump. Close or defer to a manual upgrade.
+- **jest-expo / babel-preset-expo / expo-* packages**: Versioned in lockstep with the Expo SDK; a solo bump of one of them almost always fails `expo install --check`.
 - **React Navigation major bumps**: Often requires simultaneous updates of all `@react-navigation/*` packages.
 
 ### Python
