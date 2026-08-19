@@ -138,6 +138,7 @@ Before testing, detect the project's package manager from the **repo root**:
 
 Use the detected package manager for all install/run commands throughout. The package manager is determined once per repo, even in monorepos; the lockfile lives at the root.
 
+**Bundler/Ruby PRs need a different validator.** A PR that changes `Gemfile`/`Gemfile.lock` (common in Expo/React Native repos with fastlane, or in Ruby projects) is NOT exercised by the JS package manager. Detect it from the PR's changed files (a `Gemfile` or `Gemfile.lock` path) and validate in the worktree with `bundle install` instead — which also refreshes the machine's installed gems (see the Ruby/Bundler pattern below for why that matters). A repo can carry both a JS lockfile and a Gemfile; handle each changed manager.
 ## Step 5.5: Locate the Changed package.json (monorepos)
 
 Many repos contain more than one `package.json`: workspaces (npm/yarn/pnpm/bun workspaces, Turborepo, Nx) and "two unrelated apps in one repo" cases (e.g. `app/` + `worker/`). The wrong directory means the wrong typecheck context, so the validation in Step 6 runs from the directory the PR actually touches.
@@ -362,7 +363,7 @@ Reference these when assessing PRs. This is not exhaustive - always verify by te
 ### React / React Native
 - **react-dom without react**: Must always match the `react` version exactly.
 - **react-native-mmkv 3 -> 4**: Constructor changed from `new MMKV()` to `createMMKV()`, `.delete()` renamed to `.remove()`, requires Nitro Modules jest mock.
-- **Expo SDK pins**: Many dependencies are pinned by Expo SDK version. Verify with `npx expo install --check` (read-only; `--fix` mutates). Don't bump packages that Expo constrains. See Step 6.5.
+- **Expo SDK pins**: Many dependencies are pinned by Expo SDK version. Verify with `npx expo install --check` (read-only; `--fix` mutates). Don't bump packages that Expo constrains. See Step 6.5. (last verified 2026-08) The pin set includes `typescript` and `react` (SDK 57 expects `typescript@~6.0.3`, `react@19.2.3` exactly) — close such bumps even on green CI. But the pinned `react-native` PATCH can advance across expo point releases (expo 57.0.1 pins RN 0.86.0; 57.0.9 pins RN 0.86.2), so check the latest satisfiable expo version's `bundledNativeModules.json` before assuming an RN patch bump fights the pin.
 - **expo (SDK) major bumps (e.g. 52 -> 53)**: Never auto-merge — this is a full SDK upgrade (`npx expo install --fix`, `expo-doctor`, config-plugin and native changes), not a dep bump. Close or defer to a manual upgrade.
 - **jest-expo / babel-preset-expo / expo-* packages**: Versioned in lockstep with the Expo SDK; a solo bump of one of them almost always fails `expo install --check`.
 - **React Navigation major bumps**: Often requires simultaneous updates of all `@react-navigation/*` packages.
@@ -378,3 +379,6 @@ Reference these when assessing PRs. This is not exhaustive - always verify by te
 ### General
 - **Peer dependency mismatches**: If package A requires `B@^2.0` but the PR bumps B to 3.0, close it.
 - **Monorepo grouped updates**: If one package in the group is breaking, the whole PR fails. Consider asking Dependabot to split it.
+
+### Ruby / Bundler
+- **Any bundler PR (Gemfile.lock bump)** (learned 2026-08, last verified 2026-08): merging a Gemfile.lock change updates the lock but does NOT install the new gem on the machine, so downstream `bundle exec` tooling (fastlane, cocoapods, danger, rake) breaks with `Bundler::GemNotFound: Could not find <gem>-<version> in locally installed gems` until someone runs `bundle install`. Install-and-typecheck CI never runs `bundle exec`, so it stays green while a release/ship script is silently broken. Two implications: (1) validate a bundler PR with `bundle install` in the worktree (not the JS package manager) plus, if present, a `bundle exec fastlane lanes` / `bundle exec rake -T` smoke test — that install also refreshes the local gem set, pre-empting the breakage; (2) if the repo's release scripts call `bundle exec` with no preceding `bundle install`/`bundle check`, flag it — the fix is a `bundle check || bundle install` guard before the `bundle exec` line. Seen 2026-08: a merged `json 2.19.7 -> 2.19.9` bump broke a fastlane `ship:ios` exactly this way.

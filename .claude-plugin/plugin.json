@@ -1,7 +1,7 @@
 {
   "name": "resolve-prs",
   "description": "Automatically resolve dependency-update PRs (Dependabot, Renovate, pyup, conventional-commit human PRs). Assesses risk, validates with worktree-isolated installs, checks Expo SDK compatibility, merges only on green CI or local typecheck, handles lockfile-conflict rebases, fixes breaking changes, closes incompatible ones with bot-ignore config, and respects per-repo .resolve-prs-ignore files.",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "author": {
     "name": "GijungKim"
   }
