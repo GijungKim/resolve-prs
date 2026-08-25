@@ -1,0 +1,7 @@
+interface:
+  display_name: "Resolve dependency PRs"
+  short_description: "Safely assess, test, and resolve dependency PRs"
+  default_prompt: "Use $resolve-prs to assess and resolve dependency-update PRs in this repository."
+
+policy:
+  allow_implicit_invocation: true

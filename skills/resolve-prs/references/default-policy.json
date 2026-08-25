@@ -1,0 +1,14 @@
+{
+  "$schema": "./policy.schema.json",
+  "minimumReleaseAgeHours": 48,
+  "maxParallelRepositories": 4,
+  "mergeMethodPriority": ["squash", "merge", "rebase"],
+  "allowAutoMerge": false,
+  "allowedActions": ["merge", "fix", "close", "comment", "request-rebase"],
+  "knowledgeMaxAgeMonths": 6,
+  "validation": {
+    "lowRisk": ["typecheck", "lint"],
+    "mediumRisk": ["install", "typecheck", "lint", "test"],
+    "highRisk": ["install", "typecheck", "lint", "test", "build"]
+  }
+}

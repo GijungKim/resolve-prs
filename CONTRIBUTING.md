@@ -1,41 +1,49 @@
 # Contributing
 
-Thanks for helping make resolve-prs smarter. The most valuable contributions are new breaking change patterns.
+Thanks for improving `resolve-prs`. Keep the portable core small and put conditional detail in the narrowest relevant reference, helper, policy, or knowledge entry.
 
-## Adding a breaking change pattern
+## Breaking-change knowledge
 
-If you've hit a dependency upgrade that broke things and figured out the fix, add it to the knowledge base.
+Patterns live in `skills/resolve-prs/knowledge/patterns.json`; they no longer belong in `SKILL.md`.
 
-### Format
+A useful entry must include:
 
-Add a single line under the appropriate subsection in `skills/resolve-prs/SKILL.md`:
+- a stable unique `id`;
+- ecosystem and package patterns;
+- an explicit version range or `appliesWhen` condition;
+- a concise description of the break and tested guidance;
+- `trust: "curated"` for maintained heuristics or `trust: "observed"` with `learned` and `lastVerified` dates;
+- primary release, migration, or issue sources when available.
 
-```
-- **package-name X -> Y**: Brief description of what changed and how to fix it.
-```
+Observed patterns should generalize beyond one repository. Do not include secrets, local paths, or an incident narrative that cannot guide another upgrade.
 
-### Guidelines
+Generate a candidate after a successful migration:
 
-- Keep it to one line. Link to a migration guide if more detail is needed.
-- Make it generalizable. It should help any project hitting this upgrade, not just yours.
-- Include the version range (e.g., "3 -> 4", "8 -> 9+").
-- Mention the specific API change and the fix (e.g., "`new Foo()` -> `createFoo()`").
-- Put it in the right subsection (JS/TS, React/RN, Python, General) or create a new one if needed.
-
-### Example
-
-Good:
-```
-- **react-native-mmkv 3 -> 4**: Constructor changed from `new MMKV()` to `createMMKV()`, `.delete()` renamed to `.remove()`, requires Nitro Modules jest mock.
-```
-
-Bad:
-```
-- Fixed storage import in my project after upgrading mmkv.
+```bash
+python3 skills/resolve-prs/scripts/resolve_prs.py candidate \
+  --id package-1-2 \
+  --ecosystem javascript \
+  --package package \
+  --from-version 1.x \
+  --to-version 2.x \
+  --summary "What changed" \
+  --guidance "How to migrate" \
+  --source "https://example.com/migration"
 ```
 
-## Other contributions
+Review and add the output through a normal pull request. Resolution runs must never modify an installed skill automatically.
 
-- Bug fixes to the skill logic are welcome
-- New flags or workflow improvements - open an issue first to discuss
-- Keep the SKILL.md under a reasonable size so it doesn't blow up context windows
+## Workflow changes
+
+- Keep host-specific packaging out of `SKILL.md`.
+- Put GitHub behavior in `references/github.md` and validation behavior in `references/validation.md`.
+- Put stable, repeated mechanics in `scripts/resolve_prs.py` with unit tests.
+- Preserve head-and-base evidence gating, base-bound merge authorization, worktree isolation, sequential actions, and dry-run non-mutation.
+- Add configuration only when it represents repository policy rather than universal behavior.
+
+## Validation
+
+```bash
+python3 -m unittest discover -s tests -v
+python3 skills/resolve-prs/scripts/resolve_prs.py validate-bundle
+```

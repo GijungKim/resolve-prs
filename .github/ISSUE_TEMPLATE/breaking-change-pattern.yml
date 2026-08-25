@@ -41,3 +41,19 @@ body:
       placeholder: "JS/TS, React/RN, Python, Go, General, etc."
     validations:
       required: false
+  - type: input
+    id: source
+    attributes:
+      label: Primary source
+      description: Link to official release notes, a migration guide, or an upstream issue
+      placeholder: https://example.com/releases/v2
+    validations:
+      required: false
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation evidence
+      description: Which install, typecheck, test, build, or runtime checks proved the guidance?
+      placeholder: Fresh install plus typecheck, unit tests, and production build passed.
+    validations:
+      required: true

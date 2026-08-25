@@ -1,0 +1,279 @@
+{
+  "schemaVersion": 1,
+  "patterns": [
+    {
+      "id": "eslint-8-9",
+      "ecosystem": "javascript",
+      "packages": ["eslint"],
+      "from": "8.x",
+      "to": "9.x",
+      "summary": "ESLint 9 adopts flat configuration and removes support assumptions used by many legacy configs.",
+      "guidance": "Check eslint.config.* and every shared config/plugin for flat-config support before merging.",
+      "trust": "curated"
+    },
+    {
+      "id": "eslint-9-10",
+      "ecosystem": "javascript",
+      "packages": ["eslint"],
+      "from": "9.x",
+      "to": "10.x",
+      "summary": "ESLint 10 removes FlatESLint and LegacyESLint exports used by older tooling.",
+      "guidance": "Coordinate @eslint/js and typescript-eslint versions and run the repository lint command.",
+      "trust": "curated"
+    },
+    {
+      "id": "eslint-plugin-react-refresh-04-05",
+      "ecosystem": "javascript",
+      "packages": ["eslint-plugin-react-refresh"],
+      "from": "0.4.x",
+      "to": "0.5.x",
+      "summary": "The plugin becomes ESM-only, uses a named export, and changes configs.vite to a function.",
+      "guidance": "Update imports/config calls and rename customHOCs to extraHOCs where used.",
+      "trust": "curated"
+    },
+    {
+      "id": "jest-major",
+      "ecosystem": "javascript",
+      "packages": ["jest"],
+      "from": "any",
+      "to": "next major",
+      "summary": "Framework-specific Jest presets frequently lag Jest majors.",
+      "guidance": "Check preset peer ranges and run tests through the framework preset.",
+      "trust": "curated"
+    },
+    {
+      "id": "typescript-major",
+      "ecosystem": "javascript",
+      "packages": ["typescript"],
+      "from": "any",
+      "to": "next major",
+      "summary": "TypeScript majors can invalidate compiler options, declaration emit, and build-tool integrations.",
+      "guidance": "Run typecheck, declaration emit when applicable, and the production build.",
+      "trust": "curated"
+    },
+    {
+      "id": "typescript-5-6",
+      "ecosystem": "javascript",
+      "packages": ["typescript"],
+      "from": "5.x",
+      "to": "6.x",
+      "summary": "TypeScript 6 deprecates baseUrl and node module resolution defaults and changes automatic type-package inclusion behavior.",
+      "guidance": "Remove unnecessary baseUrl, select the repository-appropriate modern moduleResolution (often bundler), declare required type packages explicitly when typeRoots relied on automatic inclusion, and run typecheck plus the production build.",
+      "trust": "curated"
+    },
+    {
+      "id": "prettier-major",
+      "ecosystem": "javascript",
+      "packages": ["prettier"],
+      "from": "any",
+      "to": "next major",
+      "summary": "Prettier majors may produce repository-wide formatting changes.",
+      "guidance": "Run the check-only formatting command and inspect plugin compatibility.",
+      "trust": "curated"
+    },
+    {
+      "id": "kysely-028-029",
+      "ecosystem": "javascript",
+      "packages": ["kysely", "better-auth", "@better-auth/*"],
+      "from": "kysely 0.28.x",
+      "to": "kysely 0.29.x",
+      "summary": "Kysely 0.29 removed migration-table exports imported by older better-auth Kysely adapters; typecheck may pass while an esbuild bundle fails.",
+      "guidance": "For server bundles, run the real bundle build. Better Auth 1.6.20+ supports Kysely 0.29. When testing pin removal with Bun, verify the lockfile actually re-resolved and only the intended Kysely copy is bundled.",
+      "appliesWhen": "The server bundle contains Kysely or an older better-auth Kysely adapter; not a client-only Expo/Metro app without Kysely.",
+      "trust": "observed",
+      "learned": "2026-06",
+      "lastVerified": "2026-07"
+    },
+    {
+      "id": "better-auth-1624-1627",
+      "ecosystem": "javascript",
+      "packages": ["better-auth", "@better-auth/expo"],
+      "from": "1.6.24",
+      "to": "1.6.27",
+      "summary": "A declaration-emit regression breaks bundled client plugins and removes inferred plugin members.",
+      "guidance": "Upgrade to 1.6.28+ after the repository's minimum-release-age window and validate the client typecheck.",
+      "trust": "observed",
+      "learned": "2026-08",
+      "lastVerified": "2026-08",
+      "sources": [
+        "https://github.com/better-auth/better-auth/issues/10515",
+        "https://github.com/better-auth/better-auth/issues/10583",
+        "https://github.com/better-auth/better-auth/issues/10767"
+      ]
+    },
+    {
+      "id": "electrobun-1-2-typescript-7",
+      "ecosystem": "javascript",
+      "packages": ["electrobun"],
+      "from": "1.x",
+      "to": "2.x",
+      "summary": "Electrobun 2 projects application APIs into .hutch/devkit via sync and its generated configuration needs TypeScript 7 compatibility adjustments.",
+      "guidance": "Run electrobun sync before typecheck, ignore generated output, extend its tsconfig, use electrobunViteAliases for external Vite builds, preserve build.mainProcess=bun plus the Bun entrypoint as the lowest-risk v1 bridge when applicable, select the existing package manager in hutch.config.ts, and verify ES2021+ libs plus a baseUrl=null override for the generated TypeScript 7 config.",
+      "trust": "observed",
+      "learned": "2026-08",
+      "lastVerified": "2026-08"
+    },
+    {
+      "id": "react-dom-pair",
+      "ecosystem": "react",
+      "packages": ["react", "react-dom"],
+      "from": "any",
+      "to": "any",
+      "summary": "React and react-dom must remain on compatible, normally identical, versions.",
+      "guidance": "Inspect both manifest and resolved lockfile versions; validate them as a coordinated update.",
+      "trust": "curated"
+    },
+    {
+      "id": "react-native-mmkv-3-4",
+      "ecosystem": "react-native",
+      "packages": ["react-native-mmkv"],
+      "from": "3.x",
+      "to": "4.x",
+      "summary": "The constructor becomes createMMKV and delete becomes remove.",
+      "guidance": "Migrate API calls and provide the Nitro Modules-compatible test mock required by the project.",
+      "trust": "curated"
+    },
+    {
+      "id": "expo-sdk-pins",
+      "ecosystem": "expo",
+      "packages": ["expo", "expo-*", "react", "react-native", "typescript"],
+      "from": "any",
+      "to": "any",
+      "summary": "Expo SDKs constrain a coordinated set of package versions that can change across SDK point releases.",
+      "guidance": "Run CI=1 npx expo install --check against the exact installed SDK. Check the current SDK metadata instead of hardcoding historical pins.",
+      "appliesWhen": "The affected application declares expo.",
+      "trust": "curated"
+    },
+    {
+      "id": "expo-sdk-major",
+      "ecosystem": "expo",
+      "packages": ["expo"],
+      "from": "SDK N",
+      "to": "SDK N+1",
+      "summary": "An Expo SDK major is a coordinated platform migration rather than an ordinary package bump.",
+      "guidance": "Use expo install --fix, expo-doctor, and validate config plugins/native changes; do not auto-merge as a standalone dependency bump.",
+      "trust": "curated"
+    },
+    {
+      "id": "expo-jest-lockstep",
+      "ecosystem": "expo",
+      "packages": ["jest-expo", "babel-preset-expo", "expo-*"],
+      "from": "any",
+      "to": "any",
+      "summary": "Expo presets and Expo packages are versioned with the SDK and may not be independently bumpable.",
+      "guidance": "Run Expo compatibility checks and test the actual framework preset.",
+      "trust": "curated"
+    },
+    {
+      "id": "react-navigation-major",
+      "ecosystem": "react-native",
+      "packages": ["@react-navigation/*"],
+      "from": "any",
+      "to": "next major",
+      "summary": "React Navigation packages often require coordinated major updates.",
+      "guidance": "Inspect every @react-navigation package and validate navigation tests/runtime startup.",
+      "trust": "curated"
+    },
+    {
+      "id": "tiptap-2-3",
+      "ecosystem": "react",
+      "packages": ["@tiptap/*"],
+      "from": "2.x",
+      "to": "3.x",
+      "summary": "Some extensions drop default exports while extension-text-style consolidates related extensions.",
+      "guidance": "Use named imports for affected extensions and run the editor build/tests; do not assume all Tiptap imports changed.",
+      "trust": "observed",
+      "learned": "2026-05",
+      "lastVerified": "2026-05"
+    },
+    {
+      "id": "vite-plugin-react-4-6",
+      "ecosystem": "react",
+      "packages": ["@vitejs/plugin-react"],
+      "from": "4.x",
+      "to": "6.x",
+      "summary": "Plugin React 6 requires Vite 8 and changes its underlying refresh toolchain.",
+      "guidance": "Coordinate the Vite major and run the production build; do not merge a standalone incompatible bump.",
+      "trust": "observed",
+      "learned": "2026-07",
+      "lastVerified": "2026-07"
+    },
+    {
+      "id": "expo-renovate-major-group",
+      "ecosystem": "expo",
+      "packages": ["expo", "expo-*"],
+      "from": "SDK N",
+      "to": "SDK N+1",
+      "summary": "A Renovate Expo group may omit React and React Native packages pinned by the new SDK while CI remains green.",
+      "guidance": "Run expo-doctor, align with expo install --fix, and validate the complete SDK package set.",
+      "trust": "observed",
+      "learned": "2026-07",
+      "lastVerified": "2026-07"
+    },
+    {
+      "id": "expo-module-jest-preset",
+      "ecosystem": "expo",
+      "packages": ["expo", "expo-module-scripts", "jest-expo"],
+      "from": "SDK N",
+      "to": "SDK N+1",
+      "summary": "expo-module-scripts may lag the SDK and pull a Jest preset with old React Native peer expectations; different package managers can hoist it differently.",
+      "guidance": "Validate using the CI package manager and add the current SDK's jest-expo explicitly when the root test preset otherwise disappears.",
+      "trust": "observed",
+      "learned": "2026-07",
+      "lastVerified": "2026-07"
+    },
+    {
+      "id": "django-major",
+      "ecosystem": "python",
+      "packages": ["Django", "django"],
+      "from": "any",
+      "to": "next major",
+      "summary": "Django majors remove deprecated middleware, URL, and framework behavior.",
+      "guidance": "Read the official release notes and run framework checks plus tests.",
+      "trust": "curated"
+    },
+    {
+      "id": "sqlalchemy-1-2",
+      "ecosystem": "python",
+      "packages": ["SQLAlchemy", "sqlalchemy"],
+      "from": "1.x",
+      "to": "2.x",
+      "summary": "SQLAlchemy 2 changes the query and execution APIs.",
+      "guidance": "Follow the official migration guide and exercise database integration tests.",
+      "trust": "curated"
+    },
+    {
+      "id": "peer-dependency-mismatch",
+      "ecosystem": "general",
+      "packages": ["*"],
+      "from": "any",
+      "to": "any",
+      "summary": "An update outside a consumer's declared peer range is incompatible until the consumer moves.",
+      "guidance": "Inspect resolved peer constraints; coordinate updates, defer, or close with the exact incompatible range.",
+      "trust": "curated"
+    },
+    {
+      "id": "grouped-update",
+      "ecosystem": "general",
+      "packages": ["*"],
+      "from": "any",
+      "to": "any",
+      "summary": "One breaking member makes a grouped dependency update unsafe as a whole.",
+      "guidance": "Validate the group together or ask the dependency bot to split it.",
+      "trust": "curated"
+    },
+    {
+      "id": "bundler-lock-update",
+      "ecosystem": "ruby",
+      "packages": ["*"],
+      "from": "any",
+      "to": "any",
+      "summary": "A Gemfile.lock update can leave release tooling without the newly locked gem even when JavaScript CI remains green.",
+      "guidance": "Run bundle install in the validation worktree and a repository-relevant bundle exec smoke command such as Rake tasks or Fastlane lanes.",
+      "appliesWhen": "Gemfile or Gemfile.lock changes.",
+      "trust": "observed",
+      "learned": "2026-08",
+      "lastVerified": "2026-08"
+    }
+  ]
+}

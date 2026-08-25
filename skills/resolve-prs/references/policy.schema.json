@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/GijungKim/resolve-prs/blob/main/skills/resolve-prs/references/policy.schema.json",
+  "title": "resolve-prs policy",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "minimumReleaseAgeHours": { "type": "integer", "minimum": 0 },
+    "maxParallelRepositories": { "type": "integer", "minimum": 1, "maximum": 8 },
+    "mergeMethodPriority": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["squash", "merge", "rebase"] }
+    },
+    "allowAutoMerge": { "type": "boolean" },
+    "allowedActions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["merge", "fix", "close", "comment", "request-rebase"] }
+    },
+    "ignore": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "knowledgeMaxAgeMonths": { "type": "integer", "minimum": 0 },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lowRisk": { "$ref": "#/$defs/checks" },
+        "mediumRisk": { "$ref": "#/$defs/checks" },
+        "highRisk": { "$ref": "#/$defs/checks" }
+      }
+    }
+  },
+  "$defs": {
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}
