@@ -88,10 +88,10 @@ The agent handles research and migration judgment. The helper handles repeatable
 - Dry-run/assessment performs no remote mutation.
 - Medium/high-risk validation runs in disposable worktrees.
 - Semver alone never authorizes a merge.
-- Every merge requires a merge queue or equivalent mechanism whose CI validates the actual PR-head/base combination; ordinary direct GitHub merges are deferred.
+- Every merge requires evidence gated against the latest observed PR head and base; direct GitHub merges use a head-SHA compare-and-swap.
 - Fixed PRs require new evidence after their head changes.
 - PRs are merged sequentially to expose lockfile and peer conflicts.
-- Auto-merge is disabled by default and is permitted only with policy approval plus base-bound merge-group validation.
+- Auto-merge is disabled by default and is permitted only with policy approval.
 
 ## Prerequisites
 

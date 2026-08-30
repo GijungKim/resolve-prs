@@ -38,7 +38,7 @@ Review and add the output through a normal pull request. Resolution runs must ne
 - Keep host-specific packaging out of `SKILL.md`.
 - Put GitHub behavior in `references/github.md` and validation behavior in `references/validation.md`.
 - Put stable, repeated mechanics in `scripts/resolve_prs.py` with unit tests.
-- Preserve head-and-base evidence gating, base-bound merge authorization, worktree isolation, sequential actions, and dry-run non-mutation.
+- Preserve head-and-base evidence gating, head-SHA compare-and-swap merges, worktree isolation, sequential actions, and dry-run non-mutation.
 - Add configuration only when it represents repository policy rather than universal behavior.
 
 ## Validation
