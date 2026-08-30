@@ -39,7 +39,7 @@ Items 5 and 6 never independently justify a merge.
 
 Before selecting an outcome, confirm its mutation is present in the effective policy's `allowedActions`. Missing permission means report or defer.
 
-- **Merge** only with green evidence, no unresolved incompatibility, and a base-bound merge mechanism whose CI validates the actual merge group.
+- **Merge** only with green evidence, no unresolved incompatibility, and freshly gated head/base state. Direct merges must use a head-SHA compare-and-swap when the platform supports one.
 - **Fix then merge** when the migration is understood, scoped, validated after the fix, and permitted by policy.
 - **Close** only for a concrete incompatibility or an update intentionally excluded by project policy. Explain how to keep the bot from reopening it.
 - **Defer** for young releases, changing heads, unresolved conflicts, missing authorization, incomplete evidence, or uncertainty.

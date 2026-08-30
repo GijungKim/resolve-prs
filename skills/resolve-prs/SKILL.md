@@ -40,8 +40,8 @@ These invariants override convenience and ecosystem guidance:
 4. Process merges sequentially, lowest risk first. Earlier merges may invalidate later lockfiles or peer assumptions.
 5. A merge requires green CI or passing local validation. Semver alone is never sufficient.
 6. Re-read PR state immediately before every merge, close, rebase request, comment, or push.
-7. Merge only through a merge queue or equivalent mechanism that validates the actual PR-head/base combination. A head-only compare-and-swap is insufficient; defer when base-bound merging is unavailable.
-8. Never enable auto-merge unless policy permits it and merge-group validation covers the final base combination. Otherwise defer.
+7. Immediately before merging, gate evidence against the latest observed PR head and base. For a direct GitHub merge, require a head-SHA compare-and-swap such as `--match-head-commit`; refresh and revalidate if state changes or the merge is rejected.
+8. Never enable auto-merge unless policy permits it. Otherwise merge directly after the evidence gate or defer.
 9. Keep the user's checkout unchanged; clean up only worktrees created by this run.
 10. Get authorization at the point required by the host before an external mutation. A skill invocation does not bypass host approval policy.
 11. Never perform an action omitted from the effective policy's `allowedActions`.

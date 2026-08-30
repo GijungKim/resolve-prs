@@ -85,13 +85,15 @@ python3 "$RESOLVE_PRS_SKILL_DIR/scripts/resolve_prs.py" gate \
   --policy .resolve-prs.json
 ```
 
-Omit `--policy` when no override exists. This gate proves the recorded validation still matches the observed PR head and base; it does not make a subsequent GitHub merge atomic.
+Omit `--policy` when no override exists. This gate proves the recorded validation still matches the latest observed PR head and base. Merge immediately after it, using the selected method and a head-SHA compare-and-swap:
 
-GitHub's ordinary merge API can compare-and-swap the PR head, but it cannot bind the operation to an expected base SHA. It therefore does not satisfy this skill's base-bound safety contract. Merge only through a merge queue or equivalent platform mechanism that creates and validates the actual merge group against the latest base. Required merge-group CI is the merge authorization; the head-and-base evidence remains supporting assessment evidence.
+```bash
+gh pr merge NUMBER --repo OWNER/REPO --METHOD --match-head-commit HEAD_SHA
+```
 
-When a repository has no base-bound merge mechanism, report `Deferred (base-bound merge unavailable)` rather than calling `gh pr merge`. Do not weaken this rule because a race window appears small. The same rule applies after pushing a migration fix.
+Replace `--METHOD` with `--squash`, `--merge`, or `--rebase`. If the PR head or base changes before the command, or GitHub rejects the merge, refresh state and regenerate or re-gate evidence before retrying. A repository merge queue may still be used when configured, but it is not required.
 
-Queue or auto-merge only when policy permits it, the platform guarantees the validated PR head remains the target, and merge-group CI validates the final base combination. Otherwise report `Deferred`.
+Enable auto-merge only when policy permits it and the refreshed PR head matches the validated head. Otherwise merge directly after the evidence gate or report `Deferred`.
 
 ### Fix and push
 
