@@ -102,6 +102,24 @@
       ]
     },
     {
+      "id": "better-auth-17-account-issuer",
+      "ecosystem": "javascript",
+      "packages": ["better-auth", "@better-auth/*"],
+      "from": "1.6.x",
+      "to": "1.7.x",
+      "summary": "Better Auth 1.7 makes Account.issuer required and keys account identity on (issuer, accountId). A project passing its own adapter schema still compiles and type checks without it, then fails at runtime with \"The field \\\"issuer\\\" does not exist in the schema for the model \\\"account\\\"\" on the first request that writes or looks up the account model. Flows that write no account row, such as email OTP, keep working, so a green CI run plus one working sign-in method is not coverage.",
+      "guidance": "Compare the schema handed to the adapter against Better Auth's own expectation (getAuthTables from better-auth/db against the ORM models) and fail the bump when a required field is missing. Do not stop at adding a nullable column: upstream requires backfilling a reviewed issuer for every existing account row, because the migration cannot derive trusted issuers or resolve identity collisions, then making issuer non-nullable and adding the unique (issuer, accountId) index. A generated schema migration never emits a statement that makes an existing nullable column non-nullable, so that DDL is manual. Rows left with a null issuer may not match the new identity key at sign-in.",
+      "appliesWhen": "The project passes an explicit schema to a Better Auth adapter (Drizzle, Prisma, Kysely, or custom) and its account table already holds rows.",
+      "trust": "observed",
+      "learned": "2026-09",
+      "lastVerified": "2026-09",
+      "sources": [
+        "https://github.com/better-auth/better-auth/releases/tag/v1.7.0",
+        "https://better-auth.com/docs/guides/1-7-upgrade-guide",
+        "https://github.com/better-auth/better-auth/pull/10403"
+      ]
+    },
+    {
       "id": "electrobun-1-2-typescript-7",
       "ecosystem": "javascript",
       "packages": ["electrobun"],
