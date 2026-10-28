@@ -89,6 +89,13 @@ For an Expo SDK transition, also run `npx expo-doctor` and align the SDK's React
 
 Run the repository's production bundle or documented dry-run deployment for runtime dependencies. Typechecking alone does not prove bundled imports exist.
 
+### Better Auth
+
+For server or adapter updates, including patches, follow [better-auth.md](better-auth.md).
+Compilation and bundling do not initialize authentication. Require an actual
+configured-auth request and validate nullable schema fields as well as required
+values; green CI without those checks is insufficient.
+
 ### Ruby/Bundler
 
 When `Gemfile` or `Gemfile.lock` changes, validate with Bundler even in repositories that also contain JavaScript. Use a repository-provided `bundle exec` smoke command such as listing Rake tasks or Fastlane lanes when available.
